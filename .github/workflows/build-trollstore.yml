@@ -23,11 +23,20 @@ jobs:
       - name: Compile iOS arm64 Binary
         run: |
           mkdir -p dist
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
+          CGO_ENABLED=0 GOOS=ios GOARCH=arm64 go build \
             -trimpath \
             -ldflags="-s -w -X main.Version=v8-ios -X main.Commit=${GITHUB_SHA::8} -X main.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            -o dist/cli-proxy-api \
+            -o dist/cli-proxy-api-raw \
             ./cmd/server/
+
+          # 确保 Mach-O LC_BUILD_VERSION 严格声明为 iOS (platform 2)，彻底消除 dyld wrong platform 报错
+          xcrun vtool -set-build-version ios 14.0 14.0 -replace -output dist/cli-proxy-api dist/cli-proxy-api-raw
+          rm -f dist/cli-proxy-api-raw
+
+          # 打印 Mach-O platform load commands 供验证
+          echo "=== Mach-O LC_BUILD_VERSION ==="
+          xcrun vtool -show-build dist/cli-proxy-api
+
           chmod 755 dist/cli-proxy-api
           cp config.example.yaml dist/
 

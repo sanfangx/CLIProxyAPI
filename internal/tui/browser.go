@@ -8,7 +8,10 @@ import (
 // openBrowser opens the specified URL in the user's default browser.
 func openBrowser(url string) error {
 	switch runtime.GOOS {
-	case "darwin":
+	case "darwin", "ios":
+		if _, err := exec.LookPath("uiopen"); err == nil {
+			return exec.Command("uiopen", url).Start()
+		}
 		return exec.Command("open", url).Start()
 	case "linux":
 		return exec.Command("xdg-open", url).Start()
