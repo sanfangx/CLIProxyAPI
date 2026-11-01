@@ -29,12 +29,40 @@ jobs:
             -o dist/cli-proxy-api-raw \
             ./cmd/server/
 
-          # 确保 Mach-O LC_BUILD_VERSION 严格声明为 iOS (platform 2)，彻底消除 dyld wrong platform 报错
+          # 1. 确保 Mach-O LC_BUILD_VERSION 严格声明为 iOS (platform 2)，彻底消除 dyld wrong platform 报错
           xcrun vtool -arch arm64 -set-build-version ios 14.0 14.0 -replace -output dist/cli-proxy-api dist/cli-proxy-api-raw || \
           xcrun vtool -set-build-version ios 14.0 14.0 -replace -output dist/cli-proxy-api dist/cli-proxy-api-raw
           rm -f dist/cli-proxy-api-raw
 
-          # 验证并打印 Mach-O LC_BUILD_VERSION platform 信息
+          # 2. 修复 Framework 依赖路径为 iOS 扁平格式（消除 macOS /Versions/A/ 导致 iOS dyld 找不到库崩溃）
+          xcrun install_name_tool \
+            -change "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation" \
+                    "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation" \
+            -change "/System/Library/Frameworks/Security.framework/Versions/A/Security" \
+                    "/System/Library/Frameworks/Security.framework/Security" \
+            dist/cli-proxy-api || true
+
+          # 兜底二进制就地修补，确保 CoreFoundation/Security 在 Mach-O 中的路径 100% 匹配 iOS dyld shared cache
+          python3 - <<'EOF'
+          with open("dist/cli-proxy-api", "r+b") as f:
+              data = f.read()
+              old_cf = b"/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation\0"
+              new_cf = b"/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation\0"
+              if old_cf in data:
+                  data = data.replace(old_cf, new_cf + b"\0" * (len(old_cf) - len(new_cf)))
+                  print("Patched CoreFoundation to iOS flat layout")
+              old_sec = b"/System/Library/Frameworks/Security.framework/Versions/A/Security\0"
+              new_sec = b"/System/Library/Frameworks/Security.framework/Security\0"
+              if old_sec in data:
+                  data = data.replace(old_sec, new_sec + b"\0" * (len(old_sec) - len(new_sec)))
+                  print("Patched Security to iOS flat layout")
+              f.seek(0)
+              f.write(data)
+          EOF
+
+          # 验证并打印 Mach-O LC_LOAD_DYLIB 与 LC_BUILD_VERSION platform 信息
+          echo "=== Mach-O LC_LOAD_DYLIB ==="
+          otool -L dist/cli-proxy-api
           echo "=== Mach-O LC_BUILD_VERSION ==="
           xcrun vtool -show-build dist/cli-proxy-api || true
           otool -l dist/cli-proxy-api | grep -A 5 LC_BUILD_VERSION || true
