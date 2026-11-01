@@ -21,6 +21,7 @@ import (
 	configaccess "github.com/router-for-me/CLIProxyAPI/v8/internal/access/config_access"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/api"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/buildinfo"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/certpool"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/cmd"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/githubauth"
@@ -52,6 +53,7 @@ var (
 
 // init initializes the shared logger setup.
 func init() {
+	certpool.EnsureSystemCertPool()
 	logging.SetupBaseLogger()
 	buildinfo.Version = Version
 	buildinfo.Commit = Commit

@@ -124,5 +124,8 @@ func WritablePath() string {
 			}
 		}
 	}
+	if tsRoot, ok := os.LookupEnv("TROLLSERVICE_ROOT"); ok && strings.TrimSpace(tsRoot) != "" {
+		return filepath.Clean(filepath.Join(tsRoot, "runtime"))
+	}
 	return ""
 }

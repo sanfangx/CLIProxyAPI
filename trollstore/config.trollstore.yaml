@@ -1,0 +1,30 @@
+config-version: 8
+
+# CLIProxyAPI 巨魔 (TrollStore) iOS 优化配置
+server:
+  # 绑定所有网卡 (0.0.0.0)，以便同一局域网下的 PC/Mac/其他手机也能直接调用
+  host: ""
+  port: 8317
+
+  # 商业精简模式：关闭高开销的每请求详细日志与缓冲，将内存压制在 25MB~45MB 以内，大幅避免 iOS Jetsam OOM 风险
+  commercial-mode: true
+
+  # 启用 HTTP 压缩 (zstd / gzip)
+  response-compression:
+    enabled: true
+    min-bytes: 1024
+
+# Web 管理面板设置
+management:
+  # 允许局域网远程机器 (如 PC/Mac) 访问网页管理面板 (http://<iPhone_IP>:8317/management.html)
+  allow-remote: true
+  # 管理面板访问口令，建议首次使用后修改
+  secret-key: "trollservice"
+
+# OAuth 认证凭据目录 (存放在相对路径，便于一键备份与迁移)
+oauth:
+  auth-dir: "./auth"
+
+# 本地客户端访问 API Key 列表
+api-keys:
+  - "sk-trollservice-local-key"

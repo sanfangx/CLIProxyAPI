@@ -48,8 +48,15 @@ func openURLPlatformSpecific(url string) error {
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
-	case "darwin": // macOS
-		cmd = exec.Command("open", url)
+	case "darwin", "ios": // macOS & iOS TrollStore
+		if _, err := exec.LookPath("uiopen"); err == nil {
+			cmd = exec.Command("uiopen", url)
+		} else if _, err := exec.LookPath("open"); err == nil {
+			cmd = exec.Command("open", url)
+		} else {
+			fmt.Printf("\n[iOS TrollStore] 请在 Safari 中打开以下认证链接完成授权：\n%s\n\n", url)
+			return nil
+		}
 	case "windows":
 		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
 	case "linux":
@@ -92,7 +99,10 @@ func IsAvailable() bool {
 
 	// Check platform-specific commands
 	switch runtime.GOOS {
-	case "darwin":
+	case "darwin", "ios":
+		if _, err := exec.LookPath("uiopen"); err == nil {
+			return true
+		}
 		_, err := exec.LookPath("open")
 		return err == nil
 	case "windows":
