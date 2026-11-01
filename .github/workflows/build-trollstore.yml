@@ -1,4 +1,4 @@
-name: Build CLIProxyAPI iOS (TrollStore ARM64)
+name: Build CLIProxyAPI iOS (arm64)
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-trollstore:
-    name: Build iOS arm64 TrollStore Package
+  build-ios-arm64:
+    name: Build iOS arm64 Binary
     runs-on: macos-15
     steps:
       - name: Checkout repository
@@ -20,65 +20,20 @@ jobs:
           go-version: 'stable'
           cache: true
 
-      - name: Install Host ldid & OpenSSL
-        run: |
-          brew install ldid openssl@3 zip
-
       - name: Compile iOS arm64 Binary
         run: |
-          mkdir -p build/bin
+          mkdir -p dist
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
             -trimpath \
-            -ldflags="-s -w -X main.Version=v8-trollstore -X main.Commit=${GITHUB_SHA::8} -X main.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            -o build/bin/cli-proxy-api \
+            -ldflags="-s -w -X main.Version=v8-ios -X main.Commit=${GITHUB_SHA::8} -X main.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o dist/cli-proxy-api \
             ./cmd/server/
-          chmod 755 build/bin/cli-proxy-api
+          chmod 755 dist/cli-proxy-api
+          cp config.example.yaml dist/
 
-      - name: Sign Binary with TrollStore Entitlements & FastPathSign
-        run: |
-          OPENSSL_PREFIX=$(brew --prefix openssl@3)
-          git clone --recurse-submodules --depth=1 https://github.com/opa334/TrollStore.git "$RUNNER_TEMP/TrollStore"
-
-          clang -O2 \
-            -I"$RUNNER_TEMP/TrollStore/Exploits/fastPathSign/src" \
-            -I"$RUNNER_TEMP/TrollStore/ChOma/src" \
-            -I"$OPENSSL_PREFIX/include" \
-            -L"$OPENSSL_PREFIX/lib" \
-            "$RUNNER_TEMP/TrollStore/Exploits/fastPathSign/src/fastPathSign.c" \
-            "$RUNNER_TEMP/TrollStore/Exploits/fastPathSign/src/coretrust_bug.c" \
-            "$RUNNER_TEMP/TrollStore/ChOma/src/"*.c \
-            -lcrypto -framework CoreFoundation \
-            -o "$RUNNER_TEMP/fastPathSign" || true
-
-          # 1. 注入免沙盒与守护进程权限
-          ldid -Strollstore/RootHelper.entitlements build/bin/cli-proxy-api
-
-          # 2. 注入 CoreTrust 绕过签名 (若环境支持)
-          if [ -f "$RUNNER_TEMP/fastPathSign" ]; then
-            "$RUNNER_TEMP/fastPathSign" build/bin/cli-proxy-api || true
-          fi
-
-      - name: Assemble TrollStore Distribution Bundle
-        run: |
-          DIST_DIR="build/CLIProxyAPI-TrollStore"
-          mkdir -p "$DIST_DIR/bin" "$DIST_DIR/config" "$DIST_DIR/static" "$DIST_DIR/runtime" "$DIST_DIR/auth"
-
-          cp build/bin/cli-proxy-api "$DIST_DIR/bin/"
-          cp trollstore/config.trollstore.yaml "$DIST_DIR/config/config.yaml"
-          cp trollstore/.env.trollstore "$DIST_DIR/config/.env"
-          cp trollstore/cacert.pem "$DIST_DIR/config/cacert.pem"
-          cp trollstore/static/management.html "$DIST_DIR/static/management.html"
-          cp trollstore/RootHelper.entitlements "$DIST_DIR/"
-          cp trollstore/README_TROLLSTORE.md "$DIST_DIR/README.md"
-          cp LICENSE "$DIST_DIR/"
-
-          mkdir -p dist
-          tar -C build -czf dist/CLIProxyAPI-iOS-TrollStore.tar.gz CLIProxyAPI-TrollStore
-          (cd build && zip -r ../dist/CLIProxyAPI-iOS-TrollStore.zip CLIProxyAPI-TrollStore)
-
-      - name: Upload TrollStore Artifacts
+      - name: Upload iOS arm64 Binary
         uses: actions/upload-artifact@v4
         with:
-          name: CLIProxyAPI-iOS-TrollStore
+          name: CLIProxyAPI-iOS-arm64
           path: dist/*
           if-no-files-found: error
